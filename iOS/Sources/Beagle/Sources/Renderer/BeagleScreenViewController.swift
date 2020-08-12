@@ -127,6 +127,10 @@ public class BeagleScreenViewController: BeagleController {
             
     // MARK: - Lifecycle
     
+    public override func loadView() {
+        view = ScreenView()
+    }
+    
     public override func viewDidLoad() {
         super.viewDidLoad()
         initView()

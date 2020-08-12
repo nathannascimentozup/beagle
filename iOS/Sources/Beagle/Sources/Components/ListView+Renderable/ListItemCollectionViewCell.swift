@@ -15,35 +15,85 @@
  */
 
 import UIKit
+import YogaKit
+import BeagleSchema
 
 /// Defines a container that holds a listview item
 final class ListViewCell: UICollectionViewCell {
     
-    weak var controller: BeagleScreenViewController?
-    var templateView: UIView?
-    var sizeCollection: CGSize?
-    var direction: UICollectionView.ScrollDirection?
-    var isSizeCalculated: Bool = false
+    private var containerView: UIView?
     
-    func setupCell(templateView: UIView, sizeCollection: CGSize, direction: UICollectionView.ScrollDirection) {
-        self.templateView = templateView
-        self.direction = direction
-        self.sizeCollection = sizeCollection
-        contentView.addSubview(templateView)
+    var item: Int?
+    var context: Context? {
+        get {
+            return containerView?.contextMap["item"]?.value
+        }
+        set {
+            if let context = newValue {
+                containerView?.setContext(context)
+            }
+        }
     }
     
-    override func preferredLayoutAttributesFitting(_ layoutAttributes: UICollectionViewLayoutAttributes) -> UICollectionViewLayoutAttributes {
-        if !isSizeCalculated, let template = templateView, let sizeCollection = sizeCollection {
-            var size = sizeCollection
-            switch direction {
-            case .horizontal:
-                size.width = template.frame.size.width
-            case .vertical:
-                size.height = template.frame.size.height
-            default: ()
-            }
-            layoutAttributes.size = size
+    func configure(item: Int, listView: ListViewUIComponent) {
+        let context: Context
+        if let savedContext = listView.contextResolver.context(for: item) {
+            context = savedContext
+        } else {
+            let value = listView.model.listViewItems?[item] ?? .empty
+            context = Context(id: "item", value: value)
         }
+        self.item = item
+        self.context = context
+        
+        let flexDirection = listView.model.direction.flexDirection
+        let container = containerView ?? UIView()
+        let template = container.subviews.first ?? listView.renderer.render(listView.model.template)
+        container.removeFromSuperviewAndYogaTree()
+        
+        container.parentContext = listView
+        container.style.setup(Style().flex(Flex()
+            .flexDirection(flexDirection)
+            .shrink(0)
+        ))
+        if template.superview != container {
+            template.removeFromSuperviewAndYogaTree()
+            container.addSubview(template)
+        }
+        container.setContext(context)
+
+        let host = UIView()
+        host.isHidden = true
+        host.style.setup(Style().flex(Flex().flexDirection(flexDirection)))
+        host.yoga.overflow = .scroll
+        host.addSubview(container)
+        host.frame = listView.collectionView.bounds
+        
+        (listView.renderer.controller as? BeagleScreenViewController)?.configBindings()
+        
+        host.style.applyLayout()
+        let size = container.bounds.size
+        frame.size = size
+        contentView.frame.size = size
+        container.removeFromSuperviewAndYogaTree()
+        
+        contentView.addSubview(container)
+        containerView = container
+
+        host.removeFromSuperviewAndYogaTree()
+    }
+    
+    override func preferredLayoutAttributesFitting(
+        _ layoutAttributes: UICollectionViewLayoutAttributes
+    ) -> UICollectionViewLayoutAttributes {
+        layoutAttributes.size = frame.size
         return layoutAttributes
+    }
+}
+
+extension UIView {
+    fileprivate func removeFromSuperviewAndYogaTree() {
+        removeFromSuperview()
+        YGNodeRemoveAllChildren(yoga.node)
     }
 }

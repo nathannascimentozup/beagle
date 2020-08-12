@@ -18,29 +18,31 @@ import UIKit
 import BeagleSchema
 
 extension ListView.Direction {
-    
-    func toUIKit() -> UICollectionView.ScrollDirection {
+    var scrollDirection: UICollectionView.ScrollDirection {
         switch self {
-        case .horizontal:
-            return .horizontal
         case .vertical:
             return .vertical
+        case .horizontal:
+            return .horizontal
         }
     }
-    
+    var flexDirection: Flex.FlexDirection {
+        switch self {
+        case .vertical:
+            return .column
+        case .horizontal:
+            return .row
+        }
+    }
 }
 
 extension ListView: ServerDrivenComponent {
 
     public func toView(renderer: BeagleRenderer) -> UIView {
-        guard let template = template as? RawWidget else {
-            return UIView()
-        }
-        
         let view = ListViewUIComponent(
             model: ListViewUIComponent.Model(
                 listViewItems: nil,
-                direction: direction?.toUIKit() ?? .vertical,
+                direction: direction ?? .vertical,
                 template: template,
                 onScrollEnd: onScrollEnd,
                 scrollThreshold: scrollThreshold
@@ -50,9 +52,7 @@ extension ListView: ServerDrivenComponent {
         
         renderer.controller.execute(actions: onInit, origin: view)
         renderer.observe(dataSource, andUpdateManyIn: view) {
-            if let listItems = $0 {
-                view.setListViewItems(listViewItems: listItems)
-            }
+            view.listViewItems = $0
         }
         view.style.setup(widgetProperties.style)
         return view

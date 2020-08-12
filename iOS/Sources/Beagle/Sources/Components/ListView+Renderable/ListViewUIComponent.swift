@@ -17,26 +17,73 @@
 import UIKit
 import BeagleSchema
 
+struct ListItemContextResolver {
+    
+    private var orphanCells = [Int: ListViewCell]()
+    private var contexts = [Int: Context]()
+    
+    mutating func track(orphanCell cell: ListViewCell) {
+        if let item = cell.item {
+            orphanCells[item] = cell
+        }
+    }
+    
+    mutating func reuse(cell: ListViewCell) {
+        guard let item = cell.item else { return }
+        contexts[item] = cell.context
+        orphanCells.removeValue(forKey: item)
+    }
+        
+    mutating func context(for item: Int) -> Context? {
+        if let orphan = orphanCells[item] {
+            reuse(cell: orphan)
+        }
+        return contexts[item]
+    }
+    
+    mutating func reset() {
+        while let (_, cell) = orphanCells.popFirst() {
+            cell.item = nil
+        }
+        contexts.removeAll()
+    }
+    
+}
+
 final class ListViewUIComponent: UIView {
     
     // MARK: - Properties
     
-    private var renderer: BeagleRenderer
-    private var model: Model
+    var contextResolver = ListItemContextResolver()
+    var renderer: BeagleRenderer
+    var model: Model
     var validationSetOnScrollEnd = true
-    var number = 0
+    
+    var listViewItems: [DynamicObject]? {
+        get { model.listViewItems }
+        set {
+            model.listViewItems = newValue
+            contextResolver.reset()
+            collectionView.reloadData()
+        }
+    }
     
     // MARK: - UIComponents
     
-    lazy var collectionView: UICollectionView = {
+    lazy var collectionViewFlowLayout: UICollectionViewFlowLayout = {
         let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = model.direction
+        layout.scrollDirection = model.direction.scrollDirection
         layout.minimumInteritemSpacing = 0
         layout.minimumLineSpacing = 0
         layout.estimatedItemSize = UICollectionViewFlowLayout.automaticSize
+        layout.itemSize = UICollectionViewFlowLayout.automaticSize
+        return layout
+    }()
+    
+    lazy var collectionView: UICollectionView = {
         let collection = UICollectionView(
-            frame: CGRect(),
-            collectionViewLayout: layout
+            frame: .zero,
+            collectionViewLayout: collectionViewFlowLayout
         )
         collection.backgroundColor = .clear
         collection.register(ListViewCell.self, forCellWithReuseIdentifier: "ListViewCell")
@@ -66,38 +113,9 @@ final class ListViewUIComponent: UIView {
         collectionView.anchorTo(superview: self)
     }
     
-    func setListViewItems(listViewItems: [DynamicObject]) {
-        self.model.listViewItems = listViewItems
-        self.collectionView.reloadData()
-    }
-    
-    private func setupCreateCell(_ item: DynamicObject) -> UIView {
-        let view = renderer.render(model.template)
-        let context = Context(id: "item", value: item)
-        view.setContext(context)
-        let controller = renderer.controller as? BeagleScreenViewController
-        controller?.configBindings()
-        let containerView = UIView()
-        
-        switch model.direction {
-        case .horizontal:
-            let style = Style().flex(Flex().flexDirection(.row))
-            containerView.style.setup(style)
-        case .vertical:
-            let style = Style().flex(Flex().flexDirection(.column))
-            containerView.style.setup(style)
-        default: ()
-        }
-        containerView.frame.size = collectionView.bounds.size
-        containerView.addSubview(view)
-        containerView.style.applyLayout()
-        
-        return view
-        
-    }
-    
-    private func updateCell(indexPath: IndexPath) {
-        collectionView.reloadItems(at: [indexPath])
+    override func layoutSubviews() {
+        collectionView.reloadData()
+        super.layoutSubviews()
     }
     
 }
@@ -106,53 +124,45 @@ final class ListViewUIComponent: UIView {
 extension ListViewUIComponent {
     struct Model {
         var listViewItems: [DynamicObject]?
-        var direction: UICollectionView.ScrollDirection
-        var template: RawWidget
+        var direction: ListView.Direction
+        var template: RawComponent
         var onScrollEnd: [RawAction]?
         var scrollThreshold: Int?
     }
 }
 
-// MARK: - UICollection View Delegate and DataSource Extension
+// MARK: UICollectionViewDataSource
 
-extension ListViewUIComponent: UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout {
+extension ListViewUIComponent: UICollectionViewDataSource {
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return model.listViewItems?.count ?? 0
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard
-            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ListViewCell", for: indexPath) as? ListViewCell,
-            let item = model.listViewItems?[indexPath.row] else {
-                return UICollectionViewCell()
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ListViewCell", for: indexPath)
+        if let cell = cell as? ListViewCell {
+            contextResolver.reuse(cell: cell)
+            cell.configure(item: indexPath.item, listView: self)
         }
-        
-        if cell.templateView == nil {
-            cell.setupCell(
-                templateView: self.setupCreateCell(item),
-                sizeCollection: collectionView.frame.size,
-                direction: model.direction
-            )
-        }
-        
-        cell.controller = renderer.controller as? BeagleScreenViewController
-        let context = Context(id: "item", value: item)
-        cell.templateView?.setContext(context)
-        cell.controller?.configBindings()
-        
-//        if let templateView = cell.templateView {
-//            let expression: Expression<DynamicObject> = "@{item}"
-//            renderer.observe(expression, andUpdateManyIn: templateView) { [weak self] _ in
-//                self?.updateCell(indexPath: indexPath)
-//            }
-//        }
         
         if validationSetOnScrollEnd {
             setOnScrollEnd(index: indexPath.row)
         }
         
         return cell
+    }
+    
+}
+
+// MARK: UICollectionViewDelegateFlowLayout
+
+extension ListViewUIComponent: UICollectionViewDelegateFlowLayout {
+        
+    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+        if let cell = cell as? ListViewCell {
+            contextResolver.track(orphanCell: cell)
+        }
     }
     
     func validatePercentage() -> Float {
@@ -174,30 +184,6 @@ extension ListViewUIComponent: UICollectionViewDataSource, UICollectionViewDeleg
             renderer.controller.execute(actions: action, origin: self)
             validationSetOnScrollEnd = false
         }
-    }
-    
-    func collectionView(
-        _ collectionView: UICollectionView,
-        layout collectionViewLayout: UICollectionViewLayout,
-        insetForSectionAt section: Int
-    ) -> UIEdgeInsets {
-        return .zero
-    }
-    
-    func collectionView(
-        _ collectionView: UICollectionView,
-        layout collectionViewLayout: UICollectionViewLayout,
-        minimumLineSpacingForSectionAt section: Int
-    ) -> CGFloat {
-        return 8
-    }
-    
-    func collectionView(
-        _ collectionView: UICollectionView,
-        layout collectionViewLayout: UICollectionViewLayout,
-        minimumInteritemSpacingForSectionAt section: Int
-    ) -> CGFloat {
-        return 8
     }
     
 }
