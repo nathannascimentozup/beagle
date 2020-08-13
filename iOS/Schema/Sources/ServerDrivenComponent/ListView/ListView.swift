@@ -23,6 +23,7 @@ public struct ListView: RawWidget, HasContext, AutoInitiableAndDecodable {
     public let template: RawComponent
     public let onScrollEnd: [RawAction]?
     public let scrollThreshold: Int?
+    public let useParentScroll: Bool?
     public var widgetProperties: WidgetProperties
     
 // sourcery:inline:auto:ListView.Init
@@ -34,6 +35,7 @@ public struct ListView: RawWidget, HasContext, AutoInitiableAndDecodable {
         template: RawComponent,
         onScrollEnd: [RawAction]? = nil,
         scrollThreshold: Int? = nil,
+        useParentScroll: Bool? = nil,
         widgetProperties: WidgetProperties = WidgetProperties()
     ) {
         self.context = context
@@ -43,6 +45,7 @@ public struct ListView: RawWidget, HasContext, AutoInitiableAndDecodable {
         self.template = template
         self.onScrollEnd = onScrollEnd
         self.scrollThreshold = scrollThreshold
+        self.useParentScroll = useParentScroll
         self.widgetProperties = widgetProperties
     }
 // sourcery:end

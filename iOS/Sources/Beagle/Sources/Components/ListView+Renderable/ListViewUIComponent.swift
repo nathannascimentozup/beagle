@@ -128,6 +128,7 @@ extension ListViewUIComponent {
         var template: RawComponent
         var onScrollEnd: [RawAction]?
         var scrollThreshold: Int?
+        var useParentScroll: Bool?
     }
 }
 

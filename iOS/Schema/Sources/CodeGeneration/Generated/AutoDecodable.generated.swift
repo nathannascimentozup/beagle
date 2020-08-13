@@ -221,6 +221,7 @@ extension ListView {
         case template
         case onScrollEnd
         case scrollThreshold
+        case useParentScroll
     }
 
     public init(from decoder: Decoder) throws {
@@ -233,6 +234,7 @@ extension ListView {
         template = try container.decode(forKey: .template)
         onScrollEnd = try container.decodeIfPresent(forKey: .onScrollEnd)
         scrollThreshold = try container.decodeIfPresent(Int.self, forKey: .scrollThreshold)
+        useParentScroll = try container.decodeIfPresent(Bool.self, forKey: .useParentScroll)
         widgetProperties = try WidgetProperties(from: decoder)
     }
 }

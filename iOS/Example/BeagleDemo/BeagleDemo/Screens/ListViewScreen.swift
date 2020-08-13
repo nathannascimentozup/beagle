@@ -82,7 +82,8 @@ struct ListViewScreen: DeeplinkScreen {
             ],
             widgetProperties: WidgetProperties(
                 style: Style(
-                    backgroundColor: "#0f4c75"
+                    backgroundColor: "#0f4c75",
+                    margin: EdgeValue().all(10)
                 )
             )
         ),

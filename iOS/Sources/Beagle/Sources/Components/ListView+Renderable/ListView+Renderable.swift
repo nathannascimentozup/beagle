@@ -45,7 +45,8 @@ extension ListView: ServerDrivenComponent {
                 direction: direction ?? .vertical,
                 template: template,
                 onScrollEnd: onScrollEnd,
-                scrollThreshold: scrollThreshold
+                scrollThreshold: scrollThreshold,
+                useParentScroll: useParentScroll
             ),
             renderer: renderer
         )
