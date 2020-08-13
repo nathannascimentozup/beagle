@@ -16,6 +16,7 @@
 
 package br.com.zup.beagle.android.components
 
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
@@ -24,7 +25,6 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import br.com.zup.beagle.android.action.Action
-import br.com.zup.beagle.android.action.SetContext
 import br.com.zup.beagle.android.context.Bind
 import br.com.zup.beagle.android.context.ContextComponent
 import br.com.zup.beagle.android.context.ContextData
@@ -44,7 +44,6 @@ import br.com.zup.beagle.widget.core.Flex
 import br.com.zup.beagle.widget.core.FlexDirection.COLUMN
 import br.com.zup.beagle.widget.core.FlexDirection.ROW
 import br.com.zup.beagle.widget.core.ListDirection
-
 
 @RegisterWidget
 internal data class ListViewTwo(
@@ -74,7 +73,9 @@ internal data class ListViewTwo(
         }
         val orientation = toRecyclerViewOrientation()
         contextAdapter = ListViewContextAdapter2(template, viewFactory, orientation, rootView)
+        contextAdapter.setHasStableIds(true)
         recyclerView.apply {
+            setHasFixedSize(true)
             adapter = contextAdapter
             layoutManager = LinearLayoutManager(context, orientation, false)
             isNestedScrollingEnabled = useParentScroll
@@ -97,18 +98,15 @@ internal data class ListViewTwo(
                 if (value.isNullOrEmpty()) {
                     contextAdapter.clearList()
                 } else {
+                    recyclerView.setItemViewCacheSize(1)
                     contextAdapter.setList(value)
                 }
                 list = value
             }
-
         }
     }
 
-    private fun configRecyclerViewScrollListener(
-        recyclerView: RecyclerView,
-        rootView: RootView
-    ) {
+    private fun configRecyclerViewScrollListener(recyclerView: RecyclerView, rootView: RootView) {
         recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 super.onScrollStateChanged(recyclerView, newState)
@@ -137,11 +135,9 @@ internal data class ListViewTwo(
             val lastVisible = it.findLastVisibleItemPosition().toFloat()
             scrolled = (lastVisible / totalItemCount) * 100
         }
-
         return scrolled
     }
 }
-
 
 internal class ListViewContextAdapter2(
     private val template: ServerDrivenComponent,
@@ -151,7 +147,7 @@ internal class ListViewContextAdapter2(
     private var listItems: ArrayList<Any> = ArrayList()
 ) : RecyclerView.Adapter<ContextViewHolderTwo>() {
 
-    override fun getItemViewType(position: Int): Int = position
+    private val viewModel = rootView.generateViewModelInstance<ScreenContextViewModel>()
 
     override fun onCreateViewHolder(parent: ViewGroup, position: Int): ContextViewHolderTwo {
         val view = viewFactory.makeBeagleFlexView(
@@ -160,7 +156,7 @@ internal class ListViewContextAdapter2(
         ).also {
             it.layoutParams = LayoutParams(layoutParamWidth(), layoutParamHeight())
         }
-        view.configViewPosition(position)
+        view.configItemView()
         return ContextViewHolderTwo(view)
     }
 
@@ -172,29 +168,27 @@ internal class ListViewContextAdapter2(
 
     private fun isOrientationVertical() = (orientation == RecyclerView.VERTICAL)
 
-    private fun BeagleFlexView.configViewPosition(position: Int) {
-        val templateClone = template
-        this.addServerDrivenComponent(templateClone, this@ListViewContextAdapter2.rootView)
-        this.setContextData(ContextData("item", listItems[position]))
-        this@ListViewContextAdapter2.rootView.generateViewModelInstance<ScreenContextViewModel>().linkBindingToContext()
+    private fun BeagleFlexView.configItemView() {
+        //id = viewModel.generateNewViewId()
+        addServerDrivenComponent(template, this@ListViewContextAdapter2.rootView)
+        setContextData(ContextData("item", ""))
+        viewModel.linkBindingToContextAndEvaluateThem(this)
     }
 
     override fun onBindViewHolder(holder: ContextViewHolderTwo, position: Int) {
-        val item = listItems[position]
-        val view = holder.itemView
-        view.setContextData(ContextData(id = "item", value = item))
-        view.getContextBinding()?.let { contextBinding ->
-            rootView.generateViewModelInstance<ScreenContextViewModel>().notifyBindingChanges(contextBinding)
+        holder.itemView.run {
+            setContextData(ContextData(id = "item", value = listItems[position]))
+            getContextBinding()?.let { contextBinding ->
+                viewModel.notifyBindingChanges(contextBinding)
+            }
         }
     }
 
-    fun setList(list: List<Any>) {
-        try {
-            listItems = ArrayList(list)
-            notifyDataSetChanged()
-        } catch (e: Exception) {
+    override fun getItemId(position: Int) = position.toLong()
 
-        }
+    fun setList(list: List<Any>) {
+        listItems = ArrayList(list)
+        notifyDataSetChanged()
     }
 
     fun clearList() {

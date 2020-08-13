@@ -22,8 +22,10 @@ import androidx.lifecycle.viewModelScope
 import br.com.zup.beagle.android.action.SendRequestInternal
 import br.com.zup.beagle.android.data.ActionRequester
 import br.com.zup.beagle.android.exception.BeagleApiException
+import br.com.zup.beagle.android.utils.CoroutineDispatchers
 import br.com.zup.beagle.android.view.mapper.toRequestData
 import br.com.zup.beagle.android.view.mapper.toResponse
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
@@ -36,11 +38,12 @@ data class Response(
 )
 
 internal class ActionRequestViewModel(
-    private val requester: ActionRequester = ActionRequester()
+    private val requester: ActionRequester = ActionRequester(),
+    private val ioDispatcher: CoroutineDispatcher = CoroutineDispatchers.IO
 ) : ViewModel() {
 
     fun fetch(sendRequest: SendRequestInternal): LiveData<FetchViewState> {
-        return FetchComponentLiveData(requester, sendRequest, viewModelScope.coroutineContext)
+        return FetchComponentLiveData(requester, sendRequest, ioDispatcher, viewModelScope.coroutineContext)
     }
 
     sealed class FetchViewState {
@@ -52,6 +55,7 @@ internal class ActionRequestViewModel(
 private class FetchComponentLiveData(
     private val requester: ActionRequester,
     private val sendRequest: SendRequestInternal,
+    private val ioDispatcher: CoroutineDispatcher,
     override val coroutineContext: CoroutineContext
 ) : LiveData<ActionRequestViewModel.FetchViewState>(), CoroutineScope {
 
@@ -62,7 +66,7 @@ private class FetchComponentLiveData(
     }
 
     private fun fetchData() {
-        launch {
+        launch(ioDispatcher) {
             postValue(try {
                 val response = requester.fetchData(sendRequest.toRequestData())
                 ActionRequestViewModel.FetchViewState.Success(response.toResponse())

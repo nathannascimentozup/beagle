@@ -69,9 +69,9 @@ internal class ScreenContextViewModel(
         contextDataManager.linkBindingToContext()
     }
 
-    fun linkBindingToContextAndEvaluateThem() {
+    fun linkBindingToContextAndEvaluateThem(view: View? = null) {
         contextDataManager.linkBindingToContext()
-        contextDataManager.evaluateContexts()
+        contextDataManager.evaluateContexts(view)
     }
 
     fun notifyBindingChanges(contextBinding: ContextBinding) {

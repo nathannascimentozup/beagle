@@ -21,9 +21,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import br.com.zup.beagle.android.action.RequestActionMethod
-import br.com.zup.beagle.android.action.SendRequest
-import br.com.zup.beagle.android.action.SetContext
 import br.com.zup.beagle.android.components.ListView
 import br.com.zup.beagle.android.components.Text
 import br.com.zup.beagle.android.components.layout.Container
@@ -32,7 +29,12 @@ import br.com.zup.beagle.android.components.layout.Screen
 import br.com.zup.beagle.android.context.ContextData
 import br.com.zup.beagle.android.context.expressionOf
 import br.com.zup.beagle.android.utils.toView
+import br.com.zup.beagle.core.Style
+import br.com.zup.beagle.ext.applyStyle
+import br.com.zup.beagle.ext.unitPercent
+import br.com.zup.beagle.ext.unitReal
 import br.com.zup.beagle.widget.core.ListDirection
+import br.com.zup.beagle.widget.core.Size
 
 class ContextListViewFragment : Fragment() {
 
@@ -42,47 +44,51 @@ class ContextListViewFragment : Fragment() {
     ): View? {
         val declarative = Screen(
             navigationBar = NavigationBar(title = "List"),
-            child = Container(children = listOf(buildListView()))
+            child = buildListView()
         )
         return context?.let { declarative.toView(this) }
     }
 
-    data class Genre(
-        val id: Long,
-        val name: String
+    private val list = ListView(
+        context = ContextData(
+            id = "insideContext",
+            value = listOf("1 inside", "2 inside", "3 inside", "4 inside", "5 inside",
+                "6 inside", "7 inside", "8 inside", "9 inside", "10 inside",
+                "11 inside", "12 inside", "13 inside", "14 inside", "15 inside",
+                "16 inside", "17 inside", "18 inside", "19 inside", "20 inside"
+            )
+        ),
+        dataSource = expressionOf("@{insideContext}"),
+        direction = ListDirection.HORIZONTAL,
+        template = Container(
+            children = listOf(
+                Text(text = expressionOf("@{item}")).applyStyle(
+                    Style(
+                        size = Size(width = 300.unitReal(), height = 80.unitReal())
+                    )
+                )
+            )
+        )
     )
 
     private fun buildListView() = ListView(
         context = ContextData(
-            id = "initialContext",
-            value =
-            listOf(
-                Genre(
-                    id = 0,
-                    name = ""
-                )
-            )
+            id = "outsideContext",
+            value = listOf("1 outside", "2 outside", "3 outside", "4 outside", "5 outside",
+                "6 outside", "7 outside", "8 outside", "9 outside", "10 outside")
         ),
-        onInit = listOf(SendRequest(
-            url = "https://api.themoviedb.org/3/genre/movie/list?api_key=d272326e467344029e68e3c4ff0b4059",
-            method = RequestActionMethod.GET,
-            onSuccess = listOf(
-                SetContext(
-                    contextId = "initialContext",
-                    value = "@{onSuccess.data.genres}"
-                )
-            )
-        )
-        ),
-        dataSource = expressionOf("@{initialContext}"),
+        dataSource = expressionOf("@{outsideContext}"),
         direction = ListDirection.VERTICAL,
-        template = Text(text = "@{item.name}"),
-        onScrollEnd = listOf(SendRequest(
-            url = "https://api.themoviedb.org/3/genre/movie/list?api_key=d272326e467344029e68e3c4ff0b4059",
-            method = RequestActionMethod.GET
+        template = Container(
+            children = listOf(
+                Text(text = expressionOf("@{item}")),
+                list
+            )
+        ).applyStyle(
+            Style(
+                size = Size(width = 100.unitPercent(), height = 300.unitReal())
+            )
         )
-        ),
-        scrollThreshold = 80
     )
 
     companion object {

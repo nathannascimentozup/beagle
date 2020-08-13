@@ -18,6 +18,7 @@ package br.com.zup.beagle.android.context
 
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.children
 import br.com.zup.beagle.android.action.SetContextInternal
 import br.com.zup.beagle.android.logger.BeagleMessageLogs
 import br.com.zup.beagle.android.utils.Observer
@@ -134,9 +135,29 @@ internal class ContextDataManager(
         }
     }
 
-    fun evaluateContexts() {
-        contexts.forEach { entry ->
-            notifyBindingChanges(entry.value)
+    fun evaluateContexts(view: View? = null) {
+        if (view != null) {
+            notifyAllChildrenFromView(view)
+        } else {
+            contexts.forEach { entry ->
+                notifyBindingChanges(entry.value)
+            }
+        }
+    }
+
+    private fun notifyAllChildrenFromView(view: View) {
+        view.getContextBinding()?.let {
+            notifyBindingChanges(it)
+        }
+
+        (view as? ViewGroup)?.children?.forEach { child ->
+            if (view.childCount > 0) {
+                notifyAllChildrenFromView(child)
+            } else {
+                view.getContextBinding()?.let {
+                    notifyBindingChanges(it)
+                }
+            }
         }
     }
 
