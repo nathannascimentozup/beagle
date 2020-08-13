@@ -55,7 +55,6 @@ extension ListView: ServerDrivenComponent {
         renderer.observe(dataSource, andUpdateManyIn: view) {
             view.listViewItems = $0
         }
-        view.style.setup(widgetProperties.style)
         return view
     }
 }
