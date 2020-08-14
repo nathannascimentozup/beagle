@@ -54,7 +54,8 @@ internal data class ListViewTwo(
     val template: ServerDrivenComponent,
     val onScrollEnd: List<Action>? = null,
     val scrollThreshold: Int? = null,
-    val useParentScroll: Boolean = false
+    val useParentScroll: Boolean = false,
+    val iteratorName: String? = null
 ) : WidgetView(), ContextComponent {
 
     @Transient
@@ -72,8 +73,7 @@ internal data class ListViewTwo(
             action.execute(rootView, recyclerView)
         }
         val orientation = toRecyclerViewOrientation()
-        contextAdapter = ListViewContextAdapter2(template, viewFactory, orientation, rootView)
-        contextAdapter.setHasStableIds(true)
+        contextAdapter = ListViewContextAdapter2(template, iteratorName, viewFactory, orientation, rootView)
         recyclerView.apply {
             setHasFixedSize(true)
             adapter = contextAdapter
@@ -98,7 +98,6 @@ internal data class ListViewTwo(
                 if (value.isNullOrEmpty()) {
                     contextAdapter.clearList()
                 } else {
-                    recyclerView.setItemViewCacheSize(1)
                     contextAdapter.setList(value)
                 }
                 list = value
@@ -141,6 +140,7 @@ internal data class ListViewTwo(
 
 internal class ListViewContextAdapter2(
     private val template: ServerDrivenComponent,
+    private val iteratorName: String? = null,
     private val viewFactory: ViewFactory,
     private val orientation: Int,
     private val rootView: RootView,
@@ -149,14 +149,19 @@ internal class ListViewContextAdapter2(
 
     private val viewModel = rootView.generateViewModelInstance<ScreenContextViewModel>()
 
+    override fun getItemViewType(position: Int) = position
+
     override fun onCreateViewHolder(parent: ViewGroup, position: Int): ContextViewHolderTwo {
+//        Log.i("LIST", "onCreateViewHolder")
         val view = viewFactory.makeBeagleFlexView(
             rootView.getContext(),
             Style(flex = Flex(flexDirection = flexDirection()))
-        ).also {
-            it.layoutParams = LayoutParams(layoutParamWidth(), layoutParamHeight())
+        ).apply {
+            layoutParams = LayoutParams(layoutParamWidth(), layoutParamHeight())
+            addServerDrivenComponent(template, this@ListViewContextAdapter2.rootView)
+            setContextData(ContextData(id = getContextDataId(), value = ""))
         }
-        view.configItemView()
+        viewModel.linkBindingToContext()
         return ContextViewHolderTwo(view)
     }
 
@@ -168,23 +173,18 @@ internal class ListViewContextAdapter2(
 
     private fun isOrientationVertical() = (orientation == RecyclerView.VERTICAL)
 
-    private fun BeagleFlexView.configItemView() {
-        //id = viewModel.generateNewViewId()
-        addServerDrivenComponent(template, this@ListViewContextAdapter2.rootView)
-        setContextData(ContextData("item", ""))
-        viewModel.linkBindingToContextAndEvaluateThem(this)
+    private fun getContextDataId() = iteratorName ?: "item"
+
+    override fun onViewAttachedToWindow(holder: ContextViewHolderTwo) {
+//        Log.i("LIST", "onViewAttachedToWindow")
+        super.onViewAttachedToWindow(holder)
+        viewModel.linkBindingToContextAndEvaluateThem(holder.itemView)
     }
 
     override fun onBindViewHolder(holder: ContextViewHolderTwo, position: Int) {
-        holder.itemView.run {
-            setContextData(ContextData(id = "item", value = listItems[position]))
-            getContextBinding()?.let { contextBinding ->
-                viewModel.notifyBindingChanges(contextBinding)
-            }
-        }
+//        Log.i("LIST", "onBindViewHolder position $position")
+        holder.itemView.setContextData(ContextData(id = getContextDataId(), value = listItems[position]))
     }
-
-    override fun getItemId(position: Int) = position.toLong()
 
     fun setList(list: List<Any>) {
         listItems = ArrayList(list)
