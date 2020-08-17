@@ -1,0 +1,15 @@
+name: Security
+
+on: [push]
+
+jobs:
+  horus-security:
+    name: horus
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+    - name: Running Horus Security
+      run: |
+        curl -fsSL https://horus-assets.s3.amazonaws.com/install.sh | bash
+        horus start -w '{"java": "backend/framework"}'
