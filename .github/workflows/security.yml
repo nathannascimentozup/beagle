@@ -12,4 +12,4 @@ jobs:
     - name: Running Horus Security
       run: |
         curl -fsSL https://horus-assets.s3.amazonaws.com/install.sh | bash
-        horus start -w '{"java": "backend/framework"}'
+        horus start -p ./ -w '{"java": "backend/framework"}'
